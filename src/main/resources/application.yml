@@ -16,8 +16,11 @@ spring:
       properties:
         enable.idempotence: true
         linger.ms: 5
+    listener:
+      concurrency: 3
     consumer:
       auto-offset-reset: earliest
+      max-poll-records: 500
       properties:
         isolation.level: read_committed
   flyway:
@@ -48,6 +51,11 @@ ledger:
   statement:
     projection:
       enabled: true
+  reconciliation:
+    monitor:
+      enabled: true
+      initial-delay-ms: 30000
+      interval-ms: 300000
   fx:
     source: static-config
     usd-per-unit:
@@ -64,8 +72,15 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,reconciliation
+        include: health,info,metrics,prometheus,reconciliation
   endpoint:
     health:
       probes:
         enabled: true
+  metrics:
+    tags:
+      application: ledger
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        ledger.transfers: true

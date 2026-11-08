@@ -7,6 +7,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,14 +32,18 @@ public class OutboxRelay {
     private final TransactionTemplate tx;
     private final EventsProperties properties;
     private final LedgerClock clock;
+    private final Counter publishedEvents;
 
     OutboxRelay(OutboxRepository outbox, KafkaTemplate<String, String> kafka, TransactionTemplate tx,
-            EventsProperties properties, LedgerClock clock) {
+            EventsProperties properties, LedgerClock clock, MeterRegistry meters) {
         this.outbox = outbox;
         this.kafka = kafka;
         this.tx = tx;
         this.properties = properties;
         this.clock = clock;
+        this.publishedEvents = Counter.builder("ledger.outbox.published")
+                .description("Outbox events published to Kafka")
+                .register(meters);
     }
 
     @Scheduled(fixedDelayString = "${ledger.events.relay.poll-interval-ms:200}")
@@ -53,7 +59,7 @@ public class OutboxRelay {
     }
 
     public int publishBatch() {
-        var published = tx.execute(status -> {
+        var count = tx.execute(status -> {
             var pending = outbox.lockUnpublished(properties.relay().batchSize());
             if (pending.isEmpty()) {
                 return 0;
@@ -67,9 +73,10 @@ public class OutboxRelay {
             }
             awaitAll(sends);
             outbox.markPublished(pending.stream().map(OutboxRepository.PendingEvent::id).toList(), clock.now());
+            publishedEvents.increment(pending.size());
             return pending.size();
         });
-        return published == null ? 0 : published;
+        return count == null ? 0 : count;
     }
 
     @Scheduled(cron = "${ledger.events.relay.cleanup-cron:0 17 3 * * *}")
