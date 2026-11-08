@@ -5,6 +5,7 @@ import static dev.iliamuravev.ledger.jooq.Tables.OUTBOX_EVENT;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.jooq.JSONB;
@@ -46,6 +47,19 @@ class OutboxRepository {
                 .set(OUTBOX_EVENT.PUBLISHED_AT, now.atOffset(ZoneOffset.UTC))
                 .where(OUTBOX_EVENT.ID.in(ids))
                 .execute();
+    }
+
+    int countUnpublished() {
+        return db.fetchCount(OUTBOX_EVENT, OUTBOX_EVENT.PUBLISHED_AT.isNull());
+    }
+
+    Optional<Instant> oldestUnpublishedAt() {
+        return db.select(OUTBOX_EVENT.CREATED_AT)
+                .from(OUTBOX_EVENT)
+                .where(OUTBOX_EVENT.PUBLISHED_AT.isNull())
+                .orderBy(OUTBOX_EVENT.SEQ)
+                .limit(1)
+                .fetchOptional(r -> r.value1().toInstant());
     }
 
     int deletePublishedBefore(Instant cutoff) {
