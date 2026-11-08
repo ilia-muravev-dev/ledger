@@ -9,6 +9,17 @@ spring:
       maximum-pool-size: 20
   jooq:
     sql-dialect: postgres
+  kafka:
+    bootstrap-servers: ${LEDGER_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        linger.ms: 5
+    consumer:
+      auto-offset-reset: earliest
+      properties:
+        isolation.level: read_committed
   flyway:
     locations: classpath:db/migration
   mvc:
@@ -26,6 +37,17 @@ ledger:
       max-attempts: 30
       initial-backoff: 2ms
       max-backoff: 100ms
+  events:
+    topic: transfer-events
+    partitions: 3
+    relay:
+      enabled: true
+      poll-interval-ms: 200
+      batch-size: 100
+      retention: 7d
+  statement:
+    projection:
+      enabled: true
 
 server:
   shutdown: graceful
