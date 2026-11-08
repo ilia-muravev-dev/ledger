@@ -2,6 +2,7 @@ plugins {
     java
     id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.jooq.jooq-codegen-gradle") version "3.19.35"
 }
 
 group = "dev.iliamuravev"
@@ -26,6 +27,8 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
+    jooqCodegen("org.jooq:jooq-meta-extensions:3.19.35")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
@@ -33,8 +36,87 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+val migrationScripts = layout.projectDirectory.dir("src/main/resources/db/migration")
+val jooqOutput = layout.buildDirectory.dir("generated-sources/jooq")
+
+jooq {
+    configuration {
+        generator {
+            database {
+                name = "org.jooq.meta.extensions.ddl.DDLDatabase"
+                properties {
+                    property {
+                        key = "scripts"
+                        value = migrationScripts.asFile.path + "/*.sql"
+                    }
+                    property {
+                        key = "sort"
+                        value = "flyway"
+                    }
+                    property {
+                        key = "defaultNameCase"
+                        value = "lower"
+                    }
+                }
+                forcedTypes {
+                    forcedType {
+                        userType = "dev.iliamuravev.ledger.domain.AccountType"
+                        isEnumConverter = true
+                        includeExpression = "account\\.type"
+                    }
+                    forcedType {
+                        userType = "dev.iliamuravev.ledger.domain.AccountStatus"
+                        isEnumConverter = true
+                        includeExpression = "account\\.status"
+                    }
+                    forcedType {
+                        userType = "dev.iliamuravev.ledger.domain.TransferType"
+                        isEnumConverter = true
+                        includeExpression = "transfer\\.type"
+                    }
+                    forcedType {
+                        userType = "dev.iliamuravev.ledger.domain.TransferStatus"
+                        isEnumConverter = true
+                        includeExpression = "transfer\\.status"
+                    }
+                    forcedType {
+                        userType = "dev.iliamuravev.ledger.domain.RejectionReason"
+                        isEnumConverter = true
+                        includeExpression = "transfer\\.reason"
+                    }
+                }
+            }
+            generate {
+                isRecords = true
+                isPojos = false
+                isDaos = false
+                isJavaTimeTypes = true
+            }
+            target {
+                packageName = "dev.iliamuravev.ledger.jooq"
+                directory = jooqOutput.get().asFile.path
+            }
+        }
+    }
+}
+
+tasks.named("jooqCodegen") {
+    inputs.dir(migrationScripts).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(jooqOutput)
+}
+
+sourceSets {
+    main {
+        java.srcDir(jooqOutput)
+    }
+}
+
+tasks.compileJava {
+    dependsOn(tasks.named("jooqCodegen"))
+}
+
 tasks.withType<JavaCompile> {
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-parameters"))
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial", "-parameters"))
 }
 
 tasks.test {
