@@ -117,6 +117,24 @@ class StatementProjectionIT extends IntegrationTest {
     }
 
     @Test
+    void batchWithDuplicatesAndSeveralEntriesPerAccountCountsEachEntryOnce() {
+        var account = UUID.randomUUID();
+        var counterparty = UUID.randomUUID();
+        var base = ThreadLocalRandom.current().nextLong(1L << 40, 1L << 50);
+        var a = event(account, counterparty, base, 100, 100);
+        var b = event(account, counterparty, base + 1, 50, 150);
+        var c = event(account, counterparty, base + 2, -20, 130);
+
+        assertThat(projection.applyAll(List.of(c, a, a, b))).containsExactly(true, true, false, true);
+        assertThat(projection.applyAll(List.of(a, b, c))).containsExactly(false, false, false);
+
+        var view = db.selectFrom(ACCOUNT_BALANCE_VIEW).where(ACCOUNT_BALANCE_VIEW.ACCOUNT_ID.eq(account)).fetchSingle();
+        assertThat(view.getBalance()).isEqualTo(130);
+        assertThat(view.getEntryCount()).isEqualTo(3);
+        assertThat(view.getLastEntryId()).isEqualTo(base + 2);
+    }
+
+    @Test
     void malformedMessagesGoToTheDeadLetterTopic() {
         var marker = "not-json-" + UUID.randomUUID();
         kafka.send("transfer-events", marker, marker);

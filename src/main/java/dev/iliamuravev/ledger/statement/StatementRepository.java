@@ -10,8 +10,12 @@ import static org.jooq.impl.DSL.when;
 import dev.iliamuravev.ledger.events.TransferRecordedEvent.EntryData;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
@@ -25,45 +29,65 @@ class StatementRepository {
         this.db = db;
     }
 
-    boolean markProcessed(String consumer, UUID eventId, Instant now) {
-        return db.insertInto(PROCESSED_EVENT)
-                .set(PROCESSED_EVENT.CONSUMER, consumer)
-                .set(PROCESSED_EVENT.EVENT_ID, eventId)
-                .set(PROCESSED_EVENT.PROCESSED_AT, now.atOffset(ZoneOffset.UTC))
-                .onConflictDoNothing()
-                .execute() == 1;
+    Set<UUID> markProcessed(String consumer, Collection<UUID> eventIds, Instant now) {
+        if (eventIds.isEmpty()) {
+            return Set.of();
+        }
+        var at = now.atOffset(ZoneOffset.UTC);
+        var insert = db.insertInto(PROCESSED_EVENT, PROCESSED_EVENT.CONSUMER, PROCESSED_EVENT.EVENT_ID,
+                PROCESSED_EVENT.PROCESSED_AT);
+        for (var eventId : eventIds) {
+            insert = insert.values(consumer, eventId, at);
+        }
+        return new HashSet<>(insert.onConflictDoNothing()
+                .returningResult(PROCESSED_EVENT.EVENT_ID)
+                .fetch(PROCESSED_EVENT.EVENT_ID));
     }
 
-    boolean insertEntry(EntryData entry, UUID transferId, String transferType, Instant postedAt) {
-        return db.insertInto(STATEMENT_ENTRY)
-                .set(STATEMENT_ENTRY.ENTRY_ID, entry.entryId())
-                .set(STATEMENT_ENTRY.ACCOUNT_ID, entry.accountId())
-                .set(STATEMENT_ENTRY.TRANSFER_ID, transferId)
-                .set(STATEMENT_ENTRY.TRANSFER_TYPE, transferType)
-                .set(STATEMENT_ENTRY.COUNTERPARTY_ACCOUNT_ID, entry.counterpartyAccountId())
-                .set(STATEMENT_ENTRY.AMOUNT, entry.amount())
-                .set(STATEMENT_ENTRY.CURRENCY, entry.currency())
-                .set(STATEMENT_ENTRY.BALANCE_AFTER, entry.balanceAfter())
-                .set(STATEMENT_ENTRY.POSTED_AT, postedAt.atOffset(ZoneOffset.UTC))
-                .onConflictDoNothing()
-                .execute() == 1;
+    List<NewLine> insertLines(List<NewLine> lines) {
+        if (lines.isEmpty()) {
+            return List.of();
+        }
+        var insert = db.insertInto(STATEMENT_ENTRY,
+                STATEMENT_ENTRY.ENTRY_ID,
+                STATEMENT_ENTRY.ACCOUNT_ID,
+                STATEMENT_ENTRY.TRANSFER_ID,
+                STATEMENT_ENTRY.TRANSFER_TYPE,
+                STATEMENT_ENTRY.COUNTERPARTY_ACCOUNT_ID,
+                STATEMENT_ENTRY.AMOUNT,
+                STATEMENT_ENTRY.CURRENCY,
+                STATEMENT_ENTRY.BALANCE_AFTER,
+                STATEMENT_ENTRY.POSTED_AT);
+        for (var line : lines) {
+            var entry = line.entry();
+            insert = insert.values(entry.entryId(), entry.accountId(), line.transferId(), line.transferType(),
+                    entry.counterpartyAccountId(), entry.amount(), entry.currency(), entry.balanceAfter(),
+                    line.postedAt().atOffset(ZoneOffset.UTC));
+        }
+        var inserted = new HashSet<>(insert.onConflictDoNothing()
+                .returningResult(STATEMENT_ENTRY.ENTRY_ID)
+                .fetch(STATEMENT_ENTRY.ENTRY_ID));
+        return lines.stream().filter(line -> inserted.contains(line.entry().entryId())).toList();
     }
 
-    void applyToBalance(EntryData entry, Instant now) {
+    void applyToBalances(List<BalanceDelta> deltas, Instant now) {
+        if (deltas.isEmpty()) {
+            return;
+        }
         var view = ACCOUNT_BALANCE_VIEW;
+        var at = now.atOffset(ZoneOffset.UTC);
+        var insert = db.insertInto(view, view.ACCOUNT_ID, view.CURRENCY, view.BALANCE, view.LAST_ENTRY_ID,
+                view.ENTRY_COUNT, view.UPDATED_AT);
+        for (var delta : deltas.stream().sorted(Comparator.comparing(d -> d.accountId().toString())).toList()) {
+            insert = insert.values(delta.accountId(), delta.currency(), delta.latestBalance(),
+                    delta.latestEntryId(), delta.newEntries(), at);
+        }
         var newer = excluded(view.LAST_ENTRY_ID).gt(view.LAST_ENTRY_ID);
-        db.insertInto(view)
-                .set(view.ACCOUNT_ID, entry.accountId())
-                .set(view.CURRENCY, entry.currency())
-                .set(view.BALANCE, entry.balanceAfter())
-                .set(view.LAST_ENTRY_ID, entry.entryId())
-                .set(view.ENTRY_COUNT, 1L)
-                .set(view.UPDATED_AT, now.atOffset(ZoneOffset.UTC))
-                .onConflict(view.ACCOUNT_ID)
+        insert.onConflict(view.ACCOUNT_ID)
                 .doUpdate()
                 .set(view.BALANCE, when(newer, excluded(view.BALANCE)).otherwise(view.BALANCE))
                 .set(view.LAST_ENTRY_ID, greatest(view.LAST_ENTRY_ID, excluded(view.LAST_ENTRY_ID)))
-                .set(view.ENTRY_COUNT, view.ENTRY_COUNT.plus(1))
+                .set(view.ENTRY_COUNT, view.ENTRY_COUNT.plus(excluded(view.ENTRY_COUNT)))
                 .set(view.UPDATED_AT, excluded(view.UPDATED_AT))
                 .execute();
     }
@@ -88,6 +112,12 @@ class StatementRepository {
                 .fetch(r -> new StatementLine(r.getEntryId(), r.getTransferId(), r.getTransferType(),
                         r.getCounterpartyAccountId(), r.getAmount(), r.getCurrency(), r.getBalanceAfter(),
                         r.getPostedAt().toInstant()));
+    }
+
+    record NewLine(EntryData entry, UUID transferId, String transferType, Instant postedAt) {
+    }
+
+    record BalanceDelta(UUID accountId, String currency, long latestEntryId, long latestBalance, long newEntries) {
     }
 
     record BalanceView(long balance, long lastEntryId, long entryCount, Instant updatedAt) {
