@@ -158,7 +158,7 @@ class StatementProjectionIT extends IntegrationTest {
     private static TransferRecordedEvent event(UUID account, UUID counterparty, long entryId, long amount,
             long balanceAfter) {
         var transfer = new TransferData(UUID.randomUUID(), "TRANSFER", counterparty, account, Math.abs(amount), "EUR",
-                "COMPLETED", null, Instant.now());
+                "COMPLETED", null, null, null, null, null, Instant.now());
         return new TransferRecordedEvent(UUID.randomUUID(), Instant.now(), transfer,
                 List.of(new EntryData(entryId, account, counterparty, amount, "EUR", balanceAfter)));
     }

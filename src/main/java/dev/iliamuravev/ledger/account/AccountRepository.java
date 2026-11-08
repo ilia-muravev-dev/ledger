@@ -10,9 +10,12 @@ import dev.iliamuravev.ledger.jooq.tables.records.AccountRecord;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Currency;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.UUID;
 import org.jooq.DSLContext;
+import org.jooq.Record1;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -50,32 +53,38 @@ public class AccountRepository {
                 .fetchOptional(AccountRepository::toAccount);
     }
 
-    public void addToBalance(UUID id, long delta) {
-        var updated = db.update(ACCOUNT)
+    public long addToBalance(UUID id, long delta) {
+        return db.update(ACCOUNT)
                 .set(ACCOUNT.BALANCE, ACCOUNT.BALANCE.plus(delta))
                 .set(ACCOUNT.VERSION, ACCOUNT.VERSION.plus(1))
                 .where(ACCOUNT.ID.eq(id))
-                .execute();
-        if (updated != 1) {
-            throw new IllegalStateException("Account " + id + " disappeared while its balance was being updated");
-        }
+                .returningResult(ACCOUNT.BALANCE)
+                .fetchOptional(Record1::value1)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Account " + id + " disappeared while its balance was being updated"));
     }
 
-    public boolean addToBalanceIfVersion(UUID id, long delta, long expectedVersion) {
+    public OptionalLong addToBalanceIfVersion(UUID id, long delta, long expectedVersion) {
         return db.update(ACCOUNT)
                 .set(ACCOUNT.BALANCE, ACCOUNT.BALANCE.plus(delta))
                 .set(ACCOUNT.VERSION, ACCOUNT.VERSION.plus(1))
                 .where(ACCOUNT.ID.eq(id))
                 .and(ACCOUNT.VERSION.eq(expectedVersion))
-                .execute() == 1;
+                .returningResult(ACCOUNT.BALANCE)
+                .fetchOptional(Record1::value1)
+                .map(OptionalLong::of)
+                .orElse(OptionalLong.empty());
     }
 
-    public Account settlementAccount(Currency currency, Instant now) {
+    public Account systemAccount(AccountType type, Currency currency, Instant now) {
+        if (type == AccountType.CUSTOMER) {
+            throw new IllegalArgumentException("Customer accounts are opened through the API");
+        }
         db.insertInto(ACCOUNT)
                 .set(ACCOUNT.ID, UUID.randomUUID())
-                .set(ACCOUNT.OWNER, "settlement")
+                .set(ACCOUNT.OWNER, type.name().toLowerCase(Locale.ROOT).replace('_', '-'))
                 .set(ACCOUNT.CURRENCY, currency.getCurrencyCode())
-                .set(ACCOUNT.TYPE, AccountType.SETTLEMENT)
+                .set(ACCOUNT.TYPE, type)
                 .set(ACCOUNT.STATUS, AccountStatus.ACTIVE)
                 .set(ACCOUNT.BALANCE, 0L)
                 .set(ACCOUNT.VERSION, 0L)
@@ -84,7 +93,7 @@ public class AccountRepository {
                 .execute();
         return db.selectFrom(ACCOUNT)
                 .where(ACCOUNT.CURRENCY.eq(currency.getCurrencyCode()))
-                .and(ACCOUNT.TYPE.eq(AccountType.SETTLEMENT))
+                .and(ACCOUNT.TYPE.eq(type))
                 .fetchSingle(AccountRepository::toAccount);
     }
 

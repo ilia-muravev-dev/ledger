@@ -15,6 +15,7 @@ import dev.iliamuravev.ledger.support.IntegrationTest;
 import dev.iliamuravev.ledger.support.LedgerQueries;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Currency;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -101,6 +102,37 @@ abstract class TransferConcurrencyContract extends IntegrationTest {
         assertThat(queries.transfersWithKey(command.idempotencyKey())).isOne();
         assertThat(balance(from)).isEqualTo(750);
         assertThat(balance(to)).isEqualTo(250);
+    }
+
+    @Test
+    void opposingFxTransfersDoNotDeadlock() throws Exception {
+        var eurAccounts = IntStream.range(0, 4).mapToObj(i -> fundedAccount(100_000)).toList();
+        var usdAccounts = IntStream.range(0, 4).mapToObj(i -> {
+            var id = accounts.open("concurrency", "USD").id();
+            transfers.deposit(UUID.randomUUID().toString(), id, Money.of(100_000, "USD"));
+            return id;
+        }).toList();
+
+        var results = Concurrently.run(32, TIMEOUT, i -> () -> {
+            var outcomes = new ArrayList<TransferOutcome>();
+            for (int n = 0; n < 5; n++) {
+                var eur = eurAccounts.get((i + n) % eurAccounts.size());
+                var usd = usdAccounts.get((i * 3 + n) % usdAccounts.size());
+                var command = i % 2 == 0
+                        ? new TransferCommand(UUID.randomUUID().toString(), TransferType.TRANSFER, eur, usd,
+                                Money.of(100, "EUR"), Currency.getInstance("USD"))
+                        : new TransferCommand(UUID.randomUUID().toString(), TransferType.TRANSFER, usd, eur,
+                                Money.of(100, "USD"), Currency.getInstance("EUR"));
+                outcomes.add(engine().execute(command));
+            }
+            return outcomes;
+        });
+
+        assertNoFailures(results);
+        assertThat(results).flatMap(Result::value)
+                .hasSize(160)
+                .allSatisfy(outcome -> assertThat(outcome.transfer().status()).isEqualTo(TransferStatus.COMPLETED));
+        assertThat(reconciliation.run().consistent()).isTrue();
     }
 
     @Test

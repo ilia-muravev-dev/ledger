@@ -12,6 +12,7 @@ public enum ProblemType {
     INSUFFICIENT_FUNDS("insufficient-funds", "Insufficient funds", HttpStatus.CONFLICT),
     ACCOUNT_CLOSED("account-closed", "Account is closed", HttpStatus.CONFLICT),
     CURRENCY_MISMATCH("currency-mismatch", "Currency does not match the accounts", HttpStatus.CONFLICT),
+    FX_RATE_UNAVAILABLE("fx-rate-unavailable", "No FX rate for this currency pair", HttpStatus.CONFLICT),
     SETTLEMENT_ACCOUNT_NOT_ALLOWED("settlement-account-not-allowed",
             "Settlement accounts cannot be used here", HttpStatus.CONFLICT),
     IDEMPOTENCY_KEY_REUSED("idempotency-key-reused",
@@ -34,6 +35,7 @@ public enum ProblemType {
             case ACCOUNT_CLOSED -> ACCOUNT_CLOSED;
             case CURRENCY_MISMATCH -> CURRENCY_MISMATCH;
             case SETTLEMENT_ACCOUNT_NOT_ALLOWED -> SETTLEMENT_ACCOUNT_NOT_ALLOWED;
+            case FX_RATE_UNAVAILABLE -> FX_RATE_UNAVAILABLE;
         };
     }
 

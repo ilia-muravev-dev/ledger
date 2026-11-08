@@ -8,6 +8,7 @@ import static org.jooq.impl.DSL.count;
 import static org.jooq.impl.DSL.sum;
 import static org.jooq.impl.DSL.val;
 
+import dev.iliamuravev.ledger.domain.AccountType;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,21 @@ public class LedgerQueries {
                 .from(LEDGER_ENTRY)
                 .groupBy(LEDGER_ENTRY.CURRENCY)
                 .fetchMap(LEDGER_ENTRY.CURRENCY, sum(LEDGER_ENTRY.AMOUNT));
+    }
+
+    public List<String> entriesOfTransfer(UUID transferId) {
+        return db.select(LEDGER_ENTRY.ACCOUNT_ID, LEDGER_ENTRY.AMOUNT, LEDGER_ENTRY.CURRENCY)
+                .from(LEDGER_ENTRY)
+                .where(LEDGER_ENTRY.TRANSFER_ID.eq(transferId))
+                .orderBy(LEDGER_ENTRY.ID)
+                .fetch(r -> r.value1() + " " + r.value2() + " " + r.value3());
+    }
+
+    public UUID fxPositionAccount(String currency) {
+        return db.select(ACCOUNT.ID).from(ACCOUNT)
+                .where(ACCOUNT.CURRENCY.eq(currency))
+                .and(ACCOUNT.TYPE.eq(AccountType.FX_POSITION))
+                .fetchSingle(ACCOUNT.ID);
     }
 
     public long cachedBalance(UUID accountId) {

@@ -48,6 +48,14 @@ ledger:
   statement:
     projection:
       enabled: true
+  fx:
+    source: static-config
+    usd-per-unit:
+      USD: 1
+      EUR: 1.0850
+      GBP: 1.2700
+      CHF: 1.1300
+      JPY: 0.0067
 
 server:
   shutdown: graceful

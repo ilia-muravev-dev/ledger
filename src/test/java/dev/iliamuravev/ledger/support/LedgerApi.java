@@ -70,6 +70,16 @@ public class LedgerApi {
                 "currency", currency));
     }
 
+    public ResponseEntity<JsonNode> fxTransfer(String idempotencyKey, UUID from, UUID to, long amount,
+            String currency, String targetCurrency) {
+        return post("/transfers", idempotencyKey, Map.of(
+                "fromAccountId", from.toString(),
+                "toAccountId", to.toString(),
+                "amount", amount,
+                "currency", currency,
+                "targetCurrency", targetCurrency));
+    }
+
     public ResponseEntity<JsonNode> getTransfer(Object id) {
         return http.getForEntity("/transfers/{id}", JsonNode.class, id);
     }

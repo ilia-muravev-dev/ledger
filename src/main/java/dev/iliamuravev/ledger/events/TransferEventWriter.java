@@ -3,7 +3,7 @@ package dev.iliamuravev.ledger.events;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.iliamuravev.ledger.config.LedgerClock;
-import dev.iliamuravev.ledger.domain.Account;
+import dev.iliamuravev.ledger.domain.Posting;
 import dev.iliamuravev.ledger.domain.Transfer;
 import dev.iliamuravev.ledger.events.TransferRecordedEvent.EntryData;
 import dev.iliamuravev.ledger.events.TransferRecordedEvent.TransferData;
@@ -30,28 +30,42 @@ public class TransferEventWriter {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public void transferRecorded(Transfer transfer, Account from, Account to, Map<UUID, Long> entryIds) {
-        var amount = transfer.amount().amount();
-        var currency = transfer.amount().currencyCode();
-        var entries = transfer.isCompleted()
-                ? List.of(
-                        new EntryData(entryIds.get(from.id()), from.id(), to.id(), -amount, currency,
-                                Math.subtractExact(from.balance().amount(), amount)),
-                        new EntryData(entryIds.get(to.id()), to.id(), from.id(), amount, currency,
-                                Math.addExact(to.balance().amount(), amount)))
-                : List.<EntryData>of();
+    public void transferRecorded(Transfer transfer, List<Posting> postings, Map<UUID, Long> entryIds,
+            Map<UUID, Long> balancesAfter) {
+        var entries = postings.stream()
+                .map(p -> new EntryData(
+                        required(entryIds, p.accountId()),
+                        p.accountId(),
+                        p.counterpartyAccountId(),
+                        p.amount().amount(),
+                        p.amount().currencyCode(),
+                        required(balancesAfter, p.accountId())))
+                .toList();
+        var fx = transfer.fx();
         var event = new TransferRecordedEvent(UUID.randomUUID(), clock.now(), new TransferData(
                 transfer.id(),
                 transfer.type().name(),
                 transfer.fromAccountId(),
                 transfer.toAccountId(),
-                amount,
-                currency,
+                transfer.amount().amount(),
+                transfer.amount().currencyCode(),
                 transfer.status().name(),
                 transfer.reason() == null ? null : transfer.reason().name(),
+                fx == null ? null : fx.target().amount(),
+                fx == null ? null : fx.target().currencyCode(),
+                fx == null ? null : fx.rate(),
+                fx == null ? null : fx.rateSource(),
                 transfer.createdAt()), entries);
         outbox.append(event.eventId(), AGGREGATE_TYPE, transfer.id(), TransferRecordedEvent.TYPE, serialize(event),
                 event.occurredAt());
+    }
+
+    private static long required(Map<UUID, Long> values, UUID accountId) {
+        var value = values.get(accountId);
+        if (value == null) {
+            throw new IllegalStateException("Missing value for account " + accountId);
+        }
+        return value;
     }
 
     private String serialize(TransferRecordedEvent event) {

@@ -3,6 +3,7 @@ package dev.iliamuravev.ledger.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Currency;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -59,5 +60,27 @@ class TransferCommandTest {
                 .isNotEqualTo(otherCurrency.fingerprint())
                 .isNotEqualTo(otherType.fingerprint())
                 .isNotEqualTo(swapped.fingerprint());
+    }
+
+    @Test
+    void fxTargetIsPartOfTheFingerprintOnlyWhenItConverts() {
+        var plain = new TransferCommand("a", TransferType.TRANSFER, from, to, Money.of(100, "EUR"));
+        var sameCurrencyTarget = new TransferCommand("a", TransferType.TRANSFER, from, to, Money.of(100, "EUR"),
+                Currency.getInstance("EUR"));
+        var fx = new TransferCommand("a", TransferType.TRANSFER, from, to, Money.of(100, "EUR"),
+                Currency.getInstance("USD"));
+
+        assertThat(sameCurrencyTarget.isFx()).isFalse();
+        assertThat(sameCurrencyTarget.fingerprint()).isEqualTo(plain.fingerprint());
+        assertThat(fx.isFx()).isTrue();
+        assertThat(fx.creditCurrency()).isEqualTo(Currency.getInstance("USD"));
+        assertThat(fx.fingerprint()).isNotEqualTo(plain.fingerprint());
+    }
+
+    @Test
+    void depositsCannotConvert() {
+        assertThatThrownBy(() -> new TransferCommand("k", TransferType.DEPOSIT, from, to, Money.of(1, "EUR"),
+                Currency.getInstance("USD")))
+                .isInstanceOf(InvalidRequestException.class);
     }
 }

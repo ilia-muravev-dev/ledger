@@ -27,6 +27,9 @@ class OptimisticConcurrencyIT extends TransferConcurrencyContract {
     @Autowired
     TransferRecorder recorder;
 
+    @Autowired
+    FxRouter fxRouter;
+
     SimpleMeterRegistry meters;
 
     OptimisticTransferEngine engine;
@@ -75,7 +78,7 @@ class OptimisticConcurrencyIT extends TransferConcurrencyContract {
     }
 
     private OptimisticTransferEngine engineWith(RetryPolicy policy) {
-        return new OptimisticTransferEngine(tx, accountRepository, recorder, policy, meters);
+        return new OptimisticTransferEngine(tx, accountRepository, recorder, fxRouter, policy, meters);
     }
 
     private UUID fundedEur(long amount) {
