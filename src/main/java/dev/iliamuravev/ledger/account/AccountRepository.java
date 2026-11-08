@@ -1,6 +1,7 @@
 package dev.iliamuravev.ledger.account;
 
 import static dev.iliamuravev.ledger.jooq.Tables.ACCOUNT;
+import static org.jooq.impl.DSL.row;
 
 import dev.iliamuravev.ledger.domain.Account;
 import dev.iliamuravev.ledger.domain.AccountStatus;
@@ -10,6 +11,7 @@ import dev.iliamuravev.ledger.jooq.tables.records.AccountRecord;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Currency;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -44,6 +46,20 @@ public class AccountRepository {
         return db.selectFrom(ACCOUNT)
                 .where(ACCOUNT.ID.eq(id))
                 .fetchOptional(AccountRepository::toAccount);
+    }
+
+    public List<Account> findCustomers(Optional<AccountCursor> after, int limit) {
+        var condition = ACCOUNT.TYPE.eq(AccountType.CUSTOMER);
+        if (after.isPresent()) {
+            var cursor = after.get();
+            var createdAt = cursor.createdAt().atOffset(ZoneOffset.UTC);
+            condition = condition.and(row(ACCOUNT.CREATED_AT, ACCOUNT.ID).lt(createdAt, cursor.id()));
+        }
+        return db.selectFrom(ACCOUNT)
+                .where(condition)
+                .orderBy(ACCOUNT.CREATED_AT.desc(), ACCOUNT.ID.desc())
+                .limit(limit)
+                .fetch(AccountRepository::toAccount);
     }
 
     public Optional<Account> lockById(UUID id) {

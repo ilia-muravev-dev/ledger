@@ -13,3 +13,8 @@ build/
 # Local env
 .env
 *.log
+
+# UI
+ui/node_modules/
+ui/dist/
+*.tsbuildinfo

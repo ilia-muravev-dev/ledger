@@ -10,6 +10,8 @@ import dev.iliamuravev.ledger.domain.CurrencyCodes;
 import dev.iliamuravev.ledger.domain.InvalidRequestException;
 import dev.iliamuravev.ledger.domain.Money;
 import java.util.Currency;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class AccountService {
 
     static final int MAX_OWNER_LENGTH = 200;
+    static final int MAX_PAGE_SIZE = 200;
 
     private final AccountRepository accounts;
     private final LedgerClock clock;
@@ -25,6 +28,9 @@ public class AccountService {
     public AccountService(AccountRepository accounts, LedgerClock clock) {
         this.accounts = accounts;
         this.clock = clock;
+    }
+
+    public record AccountPage(List<Account> accounts, Optional<AccountCursor> next) {
     }
 
     @Transactional
@@ -51,6 +57,20 @@ public class AccountService {
     @Transactional
     public Account settlementAccount(Currency currency) {
         return accounts.systemAccount(AccountType.SETTLEMENT, currency, clock.now());
+    }
+
+    @Transactional(readOnly = true)
+    public AccountPage list(Optional<AccountCursor> after, int limit) {
+        if (limit < 1 || limit > MAX_PAGE_SIZE) {
+            throw new InvalidRequestException("limit must be between 1 and " + MAX_PAGE_SIZE);
+        }
+        var rows = accounts.findCustomers(after, limit + 1);
+        if (rows.size() <= limit) {
+            return new AccountPage(rows, Optional.empty());
+        }
+        var page = rows.subList(0, limit);
+        var last = page.getLast();
+        return new AccountPage(page, Optional.of(new AccountCursor(last.createdAt(), last.id())));
     }
 
     @Transactional(readOnly = true)

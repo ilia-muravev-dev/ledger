@@ -5,6 +5,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -35,6 +38,16 @@ class AccountController {
         return ResponseEntity.created(location).body(AccountResponse.from(account));
     }
 
+    @GetMapping
+    AccountListResponse list(
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam Optional<String> cursor) {
+        var page = accounts.list(cursor.map(AccountCursor::decode), limit);
+        return new AccountListResponse(
+                page.accounts().stream().map(AccountResponse::from).toList(),
+                page.next().map(AccountCursor::encode).orElse(null));
+    }
+
     @GetMapping("/{id}")
     AccountResponse get(@PathVariable UUID id) {
         return AccountResponse.from(accounts.get(id));
@@ -43,6 +56,9 @@ class AccountController {
     @PostMapping("/{id}/close")
     AccountResponse close(@PathVariable UUID id) {
         return AccountResponse.from(accounts.close(id));
+    }
+
+    record AccountListResponse(List<AccountResponse> items, String nextCursor) {
     }
 
     record OpenAccountRequest(
