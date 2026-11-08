@@ -41,7 +41,7 @@ class PessimisticTransferEngine implements TransferEngine {
         var to = locked.get(command.toAccountId());
 
         var rejection = TransferRules.evaluate(command, from, to);
-        var transfer = recorder.record(command, rejection);
+        var transfer = recorder.record(command, from, to, rejection);
         if (transfer.isCompleted()) {
             var amount = transfer.amount().amount();
             accounts.addToBalance(from.id(), -amount);

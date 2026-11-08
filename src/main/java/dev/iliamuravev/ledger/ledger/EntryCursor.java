@@ -4,17 +4,17 @@ import dev.iliamuravev.ledger.domain.InvalidRequestException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
-record EntryCursor(long beforeEntryId) {
+public record EntryCursor(long beforeEntryId) {
 
     private static final String PREFIX = "e1:";
 
-    EntryCursor {
+    public EntryCursor {
         if (beforeEntryId <= 0) {
             throw new InvalidRequestException("Cursor is invalid");
         }
     }
 
-    static EntryCursor decode(String token) {
+    public static EntryCursor decode(String token) {
         try {
             var decoded = new String(Base64.getUrlDecoder().decode(token), StandardCharsets.UTF_8);
             if (!decoded.startsWith(PREFIX)) {
@@ -26,7 +26,7 @@ record EntryCursor(long beforeEntryId) {
         }
     }
 
-    String encode() {
+    public String encode() {
         return Base64.getUrlEncoder().withoutPadding()
                 .encodeToString((PREFIX + beforeEntryId).getBytes(StandardCharsets.UTF_8));
     }
