@@ -65,7 +65,10 @@ class AccountsApiIT extends IntegrationTest {
 
     @Test
     void malformedAccountIdIs400() {
-        assertThat(api.getAccount("not-a-uuid").getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        var response = api.getAccount("not-a-uuid");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().get("type").asText()).isEqualTo("/problems/validation-failed");
     }
 
     @Test
@@ -91,5 +94,6 @@ class AccountsApiIT extends IntegrationTest {
         var response = api.post("/accounts", null, "{not json");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().get("type").asText()).isEqualTo("/problems/validation-failed");
     }
 }

@@ -41,6 +41,39 @@ public class LedgerApi {
         return response.getBody().get("balance").asLong();
     }
 
+    public ResponseEntity<JsonNode> closeAccount(UUID id) {
+        return post("/accounts/" + id + "/close", null, null);
+    }
+
+    public ResponseEntity<JsonNode> deposit(String idempotencyKey, UUID accountId, long amount, String currency) {
+        return post("/accounts/" + accountId + "/deposits", idempotencyKey,
+                Map.of("amount", amount, "currency", currency));
+    }
+
+    public void fund(UUID accountId, long amount, String currency) {
+        var response = deposit(UUID.randomUUID().toString(), accountId, amount, currency);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+    }
+
+    public UUID fundedAccount(String currency, long amount) {
+        var id = openAccountId(currency);
+        fund(id, amount, currency);
+        return id;
+    }
+
+    public ResponseEntity<JsonNode> transfer(String idempotencyKey, UUID from, UUID to, long amount,
+            String currency) {
+        return post("/transfers", idempotencyKey, Map.of(
+                "fromAccountId", from.toString(),
+                "toAccountId", to.toString(),
+                "amount", amount,
+                "currency", currency));
+    }
+
+    public ResponseEntity<JsonNode> getTransfer(Object id) {
+        return http.getForEntity("/transfers/{id}", JsonNode.class, id);
+    }
+
     public ResponseEntity<JsonNode> post(String path, String idempotencyKey, Object body) {
         var headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

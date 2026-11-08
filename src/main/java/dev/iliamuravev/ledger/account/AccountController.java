@@ -40,6 +40,11 @@ class AccountController {
         return AccountResponse.from(accounts.get(id));
     }
 
+    @PostMapping("/{id}/close")
+    AccountResponse close(@PathVariable UUID id) {
+        return AccountResponse.from(accounts.close(id));
+    }
+
     record OpenAccountRequest(
             @NotBlank @Size(max = AccountService.MAX_OWNER_LENGTH) String owner,
             @NotBlank String currency) {

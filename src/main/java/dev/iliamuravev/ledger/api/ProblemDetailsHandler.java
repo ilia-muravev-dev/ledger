@@ -1,7 +1,12 @@
 package dev.iliamuravev.ledger.api;
 
+import dev.iliamuravev.ledger.domain.AccountNotEmptyException;
 import dev.iliamuravev.ledger.domain.AccountNotFoundException;
+import dev.iliamuravev.ledger.domain.IdempotencyKeyReusedException;
 import dev.iliamuravev.ledger.domain.InvalidRequestException;
+import dev.iliamuravev.ledger.domain.TransferNotFoundException;
+import dev.iliamuravev.ledger.transfer.TransferRejectedException;
+import java.net.URI;
 import java.util.LinkedHashMap;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -17,6 +22,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 class ProblemDetailsHandler extends ResponseEntityExceptionHandler {
 
+    private static final URI ABOUT_BLANK = URI.create("about:blank");
+
     @ExceptionHandler(InvalidRequestException.class)
     ProblemDetail invalidRequest(InvalidRequestException e) {
         return problem(ProblemType.VALIDATION_FAILED, e.getMessage());
@@ -26,6 +33,36 @@ class ProblemDetailsHandler extends ResponseEntityExceptionHandler {
     ProblemDetail accountNotFound(AccountNotFoundException e) {
         var problem = problem(ProblemType.ACCOUNT_NOT_FOUND, e.getMessage());
         problem.setProperty("accountId", e.accountId());
+        return problem;
+    }
+
+    @ExceptionHandler(TransferNotFoundException.class)
+    ProblemDetail transferNotFound(TransferNotFoundException e) {
+        var problem = problem(ProblemType.TRANSFER_NOT_FOUND, e.getMessage());
+        problem.setProperty("transferId", e.transferId());
+        return problem;
+    }
+
+    @ExceptionHandler(AccountNotEmptyException.class)
+    ProblemDetail accountNotEmpty(AccountNotEmptyException e) {
+        var problem = problem(ProblemType.ACCOUNT_NOT_EMPTY, e.getMessage());
+        problem.setProperty("accountId", e.accountId());
+        return problem;
+    }
+
+    @ExceptionHandler(TransferRejectedException.class)
+    ProblemDetail transferRejected(TransferRejectedException e) {
+        var transfer = e.transfer();
+        var problem = problem(ProblemType.of(transfer.reason()), e.getMessage());
+        problem.setProperty("transferId", transfer.id());
+        problem.setProperty("reason", transfer.reason().name());
+        return problem;
+    }
+
+    @ExceptionHandler(IdempotencyKeyReusedException.class)
+    ProblemDetail idempotencyKeyReused(IdempotencyKeyReusedException e) {
+        var problem = problem(ProblemType.IDEMPOTENCY_KEY_REUSED, e.getMessage());
+        problem.setProperty("idempotencyKey", e.idempotencyKey());
         return problem;
     }
 
@@ -41,6 +78,24 @@ class ProblemDetailsHandler extends ResponseEntityExceptionHandler {
         var problem = problem(ProblemType.VALIDATION_FAILED, "One or more fields are invalid");
         problem.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleExceptionInternal(
+            @NonNull Exception e,
+            Object body,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request) {
+        var response = super.handleExceptionInternal(e, body, headers, status, request);
+        if (response != null
+                && response.getBody() instanceof ProblemDetail problem
+                && status.value() == ProblemType.VALIDATION_FAILED.status().value()
+                && ABOUT_BLANK.equals(problem.getType())) {
+            problem.setType(ProblemType.VALIDATION_FAILED.type());
+            problem.setTitle(ProblemType.VALIDATION_FAILED.title());
+        }
+        return response;
     }
 
     static ProblemDetail problem(ProblemType type, String detail) {
