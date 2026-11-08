@@ -19,6 +19,14 @@ spring:
     serialization:
       write-dates-as-timestamps: false
 
+ledger:
+  transfers:
+    locking: ${LEDGER_LOCKING:pessimistic}
+    optimistic:
+      max-attempts: 30
+      initial-backoff: 2ms
+      max-backoff: 100ms
+
 server:
   shutdown: graceful
 
