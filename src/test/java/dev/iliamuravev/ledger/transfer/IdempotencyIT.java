@@ -109,6 +109,7 @@ class IdempotencyIT extends IntegrationTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().get("detail").asText()).contains("Idempotency-Key");
+        assertThat(response.getBody().get("type").asText()).isEqualTo("/problems/validation-failed");
     }
 
     @Test
