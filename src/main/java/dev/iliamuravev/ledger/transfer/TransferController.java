@@ -1,5 +1,6 @@
 package dev.iliamuravev.ledger.transfer;
 
+import dev.iliamuravev.ledger.domain.CurrencyCodes;
 import dev.iliamuravev.ledger.domain.Money;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -32,8 +33,9 @@ class TransferController {
     ResponseEntity<TransferResponse> transfer(
             @RequestHeader(IDEMPOTENCY_KEY) String idempotencyKey,
             @Valid @RequestBody TransferRequest request) {
+        var targetCurrency = request.targetCurrency() == null ? null : CurrencyCodes.parse(request.targetCurrency());
         var outcome = transfers.transfer(idempotencyKey, request.fromAccountId(), request.toAccountId(),
-                Money.of(request.amount(), request.currency()));
+                Money.of(request.amount(), request.currency()), targetCurrency);
         return respond(outcome);
     }
 
@@ -74,7 +76,8 @@ class TransferController {
             @NotNull UUID fromAccountId,
             @NotNull UUID toAccountId,
             @NotNull @Positive Long amount,
-            @NotBlank String currency) {
+            @NotBlank String currency,
+            String targetCurrency) {
     }
 
     record DepositRequest(

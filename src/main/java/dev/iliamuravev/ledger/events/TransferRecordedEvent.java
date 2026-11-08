@@ -1,5 +1,6 @@
 package dev.iliamuravev.ledger.events;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +22,10 @@ public record TransferRecordedEvent(UUID eventId, Instant occurredAt, TransferDa
             String currency,
             String status,
             String reason,
+            Long targetAmount,
+            String targetCurrency,
+            BigDecimal fxRate,
+            String fxRateSource,
             Instant createdAt) {
     }
 

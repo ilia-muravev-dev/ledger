@@ -50,7 +50,7 @@ public class AccountService {
 
     @Transactional
     public Account settlementAccount(Currency currency) {
-        return accounts.settlementAccount(currency, clock.now());
+        return accounts.systemAccount(AccountType.SETTLEMENT, currency, clock.now());
     }
 
     @Transactional(readOnly = true)

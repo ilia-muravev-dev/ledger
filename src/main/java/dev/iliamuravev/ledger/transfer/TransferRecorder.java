@@ -1,13 +1,15 @@
 package dev.iliamuravev.ledger.transfer;
 
 import dev.iliamuravev.ledger.config.LedgerClock;
-import dev.iliamuravev.ledger.domain.Account;
+import dev.iliamuravev.ledger.domain.FxConversion;
 import dev.iliamuravev.ledger.domain.IdempotencyKeyReusedException;
+import dev.iliamuravev.ledger.domain.Posting;
 import dev.iliamuravev.ledger.domain.RejectionReason;
 import dev.iliamuravev.ledger.domain.Transfer;
 import dev.iliamuravev.ledger.domain.TransferCommand;
 import dev.iliamuravev.ledger.events.TransferEventWriter;
 import dev.iliamuravev.ledger.ledger.LedgerEntryRepository;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -50,16 +52,20 @@ class TransferRecorder {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    public Transfer record(TransferCommand command, Account from, Account to, Optional<RejectionReason> rejection) {
+    public Transfer record(TransferCommand command, FxConversion fx, List<Posting> postings,
+            Map<UUID, Long> balancesAfter, Optional<RejectionReason> rejection) {
         var id = UUID.randomUUID();
         var now = clock.now();
         var transfer = rejection
-                .map(reason -> Transfer.rejected(id, command, reason, now))
-                .orElseGet(() -> Transfer.completed(id, command, now));
+                .map(reason -> Transfer.rejected(id, command, reason, fx, now))
+                .orElseGet(() -> Transfer.completed(id, command, fx, now));
+        if (transfer.isCompleted() == postings.isEmpty()) {
+            throw new IllegalArgumentException("Completed transfers need postings, rejected ones must have none");
+        }
         transfers.insert(transfer);
-        var entryIds = transfer.isCompleted() ? entries.insertDoubleEntry(transfer) : Map.<UUID, Long>of();
+        var entryIds = entries.insertPostings(transfer.id(), postings, now);
         idempotency.complete(command.idempotencyKey(), transfer.id());
-        events.transferRecorded(transfer, from, to, entryIds);
+        events.transferRecorded(transfer, postings, entryIds, balancesAfter);
         return transfer;
     }
 }

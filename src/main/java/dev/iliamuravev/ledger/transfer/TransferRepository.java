@@ -2,6 +2,7 @@ package dev.iliamuravev.ledger.transfer;
 
 import static dev.iliamuravev.ledger.jooq.Tables.TRANSFER;
 
+import dev.iliamuravev.ledger.domain.FxConversion;
 import dev.iliamuravev.ledger.domain.Money;
 import dev.iliamuravev.ledger.domain.Transfer;
 import dev.iliamuravev.ledger.jooq.tables.records.TransferRecord;
@@ -32,6 +33,12 @@ public class TransferRepository {
                 .set(TRANSFER.CURRENCY, transfer.amount().currencyCode())
                 .set(TRANSFER.STATUS, transfer.status())
                 .set(TRANSFER.REASON, transfer.reason())
+                .set(TRANSFER.TARGET_AMOUNT, transfer.fx() == null ? null : transfer.fx().target().amount())
+                .set(TRANSFER.TARGET_CURRENCY, transfer.fx() == null ? null : transfer.fx().target().currencyCode())
+                .set(TRANSFER.FX_RATE, transfer.fx() == null ? null : transfer.fx().rate())
+                .set(TRANSFER.FX_RATE_SOURCE, transfer.fx() == null ? null : transfer.fx().rateSource())
+                .set(TRANSFER.FX_QUOTED_AT, transfer.fx() == null ? null
+                        : transfer.fx().quotedAt().atOffset(ZoneOffset.UTC))
                 .set(TRANSFER.CREATED_AT, transfer.createdAt().atOffset(ZoneOffset.UTC))
                 .execute();
     }
@@ -52,6 +59,11 @@ public class TransferRepository {
                 new Money(r.getAmount(), Currency.getInstance(r.getCurrency())),
                 r.getStatus(),
                 r.getReason(),
+                r.getTargetCurrency() == null ? null : new FxConversion(
+                        new Money(r.getTargetAmount(), Currency.getInstance(r.getTargetCurrency())),
+                        r.getFxRate(),
+                        r.getFxRateSource(),
+                        r.getFxQuotedAt().toInstant()),
                 r.getCreatedAt().toInstant());
     }
 }

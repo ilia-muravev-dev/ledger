@@ -4,7 +4,8 @@ import static dev.iliamuravev.ledger.jooq.Tables.LEDGER_ENTRY;
 
 import dev.iliamuravev.ledger.domain.LedgerEntry;
 import dev.iliamuravev.ledger.domain.Money;
-import dev.iliamuravev.ledger.domain.Transfer;
+import dev.iliamuravev.ledger.domain.Posting;
+import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Currency;
 import java.util.List;
@@ -36,22 +37,22 @@ public class LedgerEntryRepository {
                         new Money(r.getAmount(), currency), r.getCreatedAt().toInstant()));
     }
 
-    public Map<UUID, Long> insertDoubleEntry(Transfer transfer) {
-        if (!transfer.isCompleted()) {
-            throw new IllegalArgumentException("Only completed transfers produce ledger entries");
+    public Map<UUID, Long> insertPostings(UUID transferId, List<Posting> postings, Instant createdAt) {
+        if (postings.isEmpty()) {
+            return Map.of();
         }
-        var amount = transfer.amount();
-        var createdAt = transfer.createdAt().atOffset(ZoneOffset.UTC);
-        return db.insertInto(LEDGER_ENTRY,
-                        LEDGER_ENTRY.TRANSFER_ID,
-                        LEDGER_ENTRY.ACCOUNT_ID,
-                        LEDGER_ENTRY.AMOUNT,
-                        LEDGER_ENTRY.CURRENCY,
-                        LEDGER_ENTRY.CREATED_AT)
-                .values(transfer.id(), transfer.fromAccountId(), amount.negate().amount(), amount.currencyCode(),
-                        createdAt)
-                .values(transfer.id(), transfer.toAccountId(), amount.amount(), amount.currencyCode(), createdAt)
-                .returningResult(LEDGER_ENTRY.ACCOUNT_ID, LEDGER_ENTRY.ID)
+        var at = createdAt.atOffset(ZoneOffset.UTC);
+        var insert = db.insertInto(LEDGER_ENTRY,
+                LEDGER_ENTRY.TRANSFER_ID,
+                LEDGER_ENTRY.ACCOUNT_ID,
+                LEDGER_ENTRY.AMOUNT,
+                LEDGER_ENTRY.CURRENCY,
+                LEDGER_ENTRY.CREATED_AT);
+        for (var posting : postings) {
+            insert = insert.values(transferId, posting.accountId(), posting.amount().amount(),
+                    posting.amount().currencyCode(), at);
+        }
+        return insert.returningResult(LEDGER_ENTRY.ACCOUNT_ID, LEDGER_ENTRY.ID)
                 .fetchMap(LEDGER_ENTRY.ACCOUNT_ID, LEDGER_ENTRY.ID);
     }
 }

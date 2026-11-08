@@ -6,6 +6,7 @@ import dev.iliamuravev.ledger.domain.Transfer;
 import dev.iliamuravev.ledger.domain.TransferCommand;
 import dev.iliamuravev.ledger.domain.TransferNotFoundException;
 import dev.iliamuravev.ledger.domain.TransferType;
+import java.util.Currency;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,8 +25,13 @@ public class TransferService {
     }
 
     public TransferOutcome transfer(String idempotencyKey, UUID fromAccountId, UUID toAccountId, Money amount) {
-        return engine.execute(
-                new TransferCommand(idempotencyKey, TransferType.TRANSFER, fromAccountId, toAccountId, amount));
+        return transfer(idempotencyKey, fromAccountId, toAccountId, amount, null);
+    }
+
+    public TransferOutcome transfer(String idempotencyKey, UUID fromAccountId, UUID toAccountId, Money amount,
+            Currency targetCurrency) {
+        return engine.execute(new TransferCommand(idempotencyKey, TransferType.TRANSFER, fromAccountId, toAccountId,
+                amount, targetCurrency));
     }
 
     public TransferOutcome deposit(String idempotencyKey, UUID accountId, Money amount) {
