@@ -71,7 +71,7 @@ class OptimisticTransferEngine implements TransferEngine {
                     .sorted(Comparator.comparing(delta -> delta.account.id(), LockOrder.ACCOUNTS))
                     .forEach(this::apply);
         }
-        return TransferOutcome.created(recorder.record(command, rejection));
+        return TransferOutcome.created(recorder.record(command, from, to, rejection));
     }
 
     private Account read(UUID id) {
