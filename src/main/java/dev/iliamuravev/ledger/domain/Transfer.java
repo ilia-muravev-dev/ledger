@@ -13,6 +13,7 @@ public record Transfer(
         Money amount,
         TransferStatus status,
         RejectionReason reason,
+        FxConversion fx,
         Instant createdAt) {
 
     public Transfer {
@@ -24,19 +25,27 @@ public record Transfer(
         Objects.requireNonNull(amount, "amount");
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(createdAt, "createdAt");
+        if (fx != null && fx.target().currency().equals(amount.currency())) {
+            throw new IllegalArgumentException("FX conversion must change the currency");
+        }
         if ((status == TransferStatus.REJECTED) != (reason != null)) {
             throw new IllegalArgumentException("A reason is required for rejected transfers and only for them");
         }
     }
 
-    public static Transfer completed(UUID id, TransferCommand command, Instant createdAt) {
+    public static Transfer completed(UUID id, TransferCommand command, FxConversion fx, Instant createdAt) {
         return new Transfer(id, command.idempotencyKey(), command.type(), command.fromAccountId(),
-                command.toAccountId(), command.amount(), TransferStatus.COMPLETED, null, createdAt);
+                command.toAccountId(), command.amount(), TransferStatus.COMPLETED, null, fx, createdAt);
     }
 
-    public static Transfer rejected(UUID id, TransferCommand command, RejectionReason reason, Instant createdAt) {
+    public static Transfer rejected(UUID id, TransferCommand command, RejectionReason reason, FxConversion fx,
+            Instant createdAt) {
         return new Transfer(id, command.idempotencyKey(), command.type(), command.fromAccountId(),
-                command.toAccountId(), command.amount(), TransferStatus.REJECTED, reason, createdAt);
+                command.toAccountId(), command.amount(), TransferStatus.REJECTED, reason, fx, createdAt);
+    }
+
+    public Money credited() {
+        return fx == null ? amount : fx.target();
     }
 
     public boolean isCompleted() {

@@ -6,6 +6,7 @@ import static dev.iliamuravev.ledger.domain.AccountFixtures.settlement;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Currency;
 import org.junit.jupiter.api.Test;
 
 class TransferRulesTest {
@@ -51,6 +52,26 @@ class TransferRulesTest {
                 Money.of(1, "USD"));
         assertThat(TransferRules.evaluate(usdAmountBetweenEurAccounts, eur, otherEur))
                 .contains(RejectionReason.CURRENCY_MISMATCH);
+    }
+
+    @Test
+    void fxTransferIsAllowedWhenTheDestinationHoldsTheTargetCurrency() {
+        var eur = customer("EUR", 1_000);
+        var usd = customer("USD", 0);
+        var command = new TransferCommand("k", TransferType.TRANSFER, eur.id(), usd.id(), Money.of(1_000, "EUR"),
+                usd.currency());
+
+        assertThat(TransferRules.evaluate(command, eur, usd)).isEmpty();
+    }
+
+    @Test
+    void fxTransferChecksTheTargetCurrencyAgainstTheDestination() {
+        var eur = customer("EUR", 1_000);
+        var gbp = customer("GBP", 0);
+        var command = new TransferCommand("k", TransferType.TRANSFER, eur.id(), gbp.id(), Money.of(1, "EUR"),
+                Currency.getInstance("USD"));
+
+        assertThat(TransferRules.evaluate(command, eur, gbp)).contains(RejectionReason.CURRENCY_MISMATCH);
     }
 
     @Test

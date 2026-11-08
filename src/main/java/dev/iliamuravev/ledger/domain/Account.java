@@ -35,4 +35,8 @@ public record Account(
     public boolean isSettlement() {
         return type == AccountType.SETTLEMENT;
     }
+
+    public boolean isCustomer() {
+        return type == AccountType.CUSTOMER;
+    }
 }

@@ -17,11 +17,11 @@ public final class TransferRules {
         if (!from.isActive() || !to.isActive()) {
             return Optional.of(RejectionReason.ACCOUNT_CLOSED);
         }
-        var currency = command.amount().currency();
-        if (!from.currency().equals(currency) || !to.currency().equals(currency)) {
+        if (!from.currency().equals(command.amount().currency())
+                || !to.currency().equals(command.creditCurrency())) {
             return Optional.of(RejectionReason.CURRENCY_MISMATCH);
         }
-        if (!from.isSettlement() && from.balance().isLessThan(command.amount())) {
+        if (from.isCustomer() && from.balance().isLessThan(command.amount())) {
             return Optional.of(RejectionReason.INSUFFICIENT_FUNDS);
         }
         return Optional.empty();
@@ -29,8 +29,8 @@ public final class TransferRules {
 
     private static boolean accountTypesAllowed(TransferType type, Account from, Account to) {
         return switch (type) {
-            case TRANSFER -> !from.isSettlement() && !to.isSettlement();
-            case DEPOSIT -> from.isSettlement() && !to.isSettlement();
+            case TRANSFER -> from.isCustomer() && to.isCustomer();
+            case DEPOSIT -> from.isSettlement() && to.isCustomer();
         };
     }
 }
