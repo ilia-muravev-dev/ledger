@@ -14,6 +14,7 @@ import dev.iliamuravev.ledger.support.Concurrently.Result;
 import dev.iliamuravev.ledger.support.IntegrationTest;
 import dev.iliamuravev.ledger.support.LedgerQueries;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
@@ -68,7 +69,7 @@ abstract class TransferConcurrencyContract extends IntegrationTest {
 
         var results = Concurrently.run(40, TIMEOUT, i -> () -> {
             var forward = i % 2 == 0;
-            var outcomes = new java.util.ArrayList<TransferOutcome>();
+            var outcomes = new ArrayList<TransferOutcome>();
             for (int n = 0; n < 10; n++) {
                 outcomes.add(engine().execute(forward ? transfer(a, b, 7) : transfer(b, a, 7)));
             }
