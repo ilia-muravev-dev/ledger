@@ -2,7 +2,7 @@ plugins {
     java
     id("org.springframework.boot") version "3.5.16"
     id("io.spring.dependency-management") version "1.1.7"
-    id("org.jooq.jooq-codegen-gradle") version "3.19.35"
+    id("org.jooq.jooq-codegen-gradle") version "3.21.9"
 }
 
 group = "dev.iliamuravev"
@@ -27,7 +27,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
-    jooqCodegen("org.jooq:jooq-meta-extensions:3.19.35")
+    jooqCodegen("org.jooq:jooq-meta-extensions:3.21.9")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
