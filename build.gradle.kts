@@ -23,6 +23,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-jooq")
+    implementation("org.springframework.kafka:spring-kafka")
     implementation("org.flywaydb:flyway-core")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
@@ -33,6 +34,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:kafka")
+    testImplementation("org.springframework.kafka:spring-kafka-test")
+    testImplementation("org.awaitility:awaitility")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
@@ -78,6 +82,10 @@ jooq {
                         userType = "dev.iliamuravev.ledger.domain.TransferStatus"
                         isEnumConverter = true
                         includeExpression = "transfer\\.status"
+                    }
+                    forcedType {
+                        name = "JSONB"
+                        includeExpression = "outbox_event\\.payload"
                     }
                     forcedType {
                         userType = "dev.iliamuravev.ledger.domain.RejectionReason"
