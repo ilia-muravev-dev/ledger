@@ -15,7 +15,8 @@ public enum ProblemType {
     SETTLEMENT_ACCOUNT_NOT_ALLOWED("settlement-account-not-allowed",
             "Settlement accounts cannot be used here", HttpStatus.CONFLICT),
     IDEMPOTENCY_KEY_REUSED("idempotency-key-reused",
-            "Idempotency key was used with a different request", HttpStatus.UNPROCESSABLE_ENTITY);
+            "Idempotency key was used with a different request", HttpStatus.UNPROCESSABLE_ENTITY),
+    CONTENTION("contention", "Too much concurrent activity on the accounts", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final URI type;
     private final String title;

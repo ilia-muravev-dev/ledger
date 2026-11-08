@@ -5,6 +5,7 @@ import dev.iliamuravev.ledger.domain.AccountNotFoundException;
 import dev.iliamuravev.ledger.domain.IdempotencyKeyReusedException;
 import dev.iliamuravev.ledger.domain.InvalidRequestException;
 import dev.iliamuravev.ledger.domain.TransferNotFoundException;
+import dev.iliamuravev.ledger.transfer.TransferContentionException;
 import dev.iliamuravev.ledger.transfer.TransferRejectedException;
 import java.net.URI;
 import java.util.LinkedHashMap;
@@ -64,6 +65,13 @@ class ProblemDetailsHandler extends ResponseEntityExceptionHandler {
         var problem = problem(ProblemType.IDEMPOTENCY_KEY_REUSED, e.getMessage());
         problem.setProperty("idempotencyKey", e.idempotencyKey());
         return problem;
+    }
+
+    @ExceptionHandler(TransferContentionException.class)
+    ResponseEntity<ProblemDetail> contention(TransferContentionException e) {
+        return ResponseEntity.status(ProblemType.CONTENTION.status())
+                .header(HttpHeaders.RETRY_AFTER, "1")
+                .body(problem(ProblemType.CONTENTION, e.getMessage()));
     }
 
     @Override

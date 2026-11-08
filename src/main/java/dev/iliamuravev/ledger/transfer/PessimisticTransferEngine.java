@@ -5,7 +5,6 @@ import dev.iliamuravev.ledger.domain.Account;
 import dev.iliamuravev.ledger.domain.AccountNotFoundException;
 import dev.iliamuravev.ledger.domain.TransferCommand;
 import dev.iliamuravev.ledger.domain.TransferRules;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -15,8 +14,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 class PessimisticTransferEngine implements TransferEngine {
-
-    static final Comparator<UUID> LOCK_ORDER = Comparator.comparing(UUID::toString);
 
     private final TransactionTemplate tx;
     private final AccountRepository accounts;
@@ -56,7 +53,7 @@ class PessimisticTransferEngine implements TransferEngine {
     private Map<UUID, Account> lockInOrder(UUID first, UUID second) {
         var locked = new HashMap<UUID, Account>();
         Stream.of(first, second)
-                .sorted(LOCK_ORDER)
+                .sorted(LockOrder.ACCOUNTS)
                 .forEach(id -> locked.put(id, accounts.lockById(id)
                         .orElseThrow(() -> new AccountNotFoundException(id))));
         return locked;

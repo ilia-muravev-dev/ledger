@@ -61,6 +61,15 @@ public class AccountRepository {
         }
     }
 
+    public boolean addToBalanceIfVersion(UUID id, long delta, long expectedVersion) {
+        return db.update(ACCOUNT)
+                .set(ACCOUNT.BALANCE, ACCOUNT.BALANCE.plus(delta))
+                .set(ACCOUNT.VERSION, ACCOUNT.VERSION.plus(1))
+                .where(ACCOUNT.ID.eq(id))
+                .and(ACCOUNT.VERSION.eq(expectedVersion))
+                .execute() == 1;
+    }
+
     public Account settlementAccount(Currency currency, Instant now) {
         db.insertInto(ACCOUNT)
                 .set(ACCOUNT.ID, UUID.randomUUID())
