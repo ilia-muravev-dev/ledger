@@ -2,12 +2,14 @@ package dev.iliamuravev.ledger.account;
 
 import dev.iliamuravev.ledger.config.LedgerClock;
 import dev.iliamuravev.ledger.domain.Account;
+import dev.iliamuravev.ledger.domain.AccountNotEmptyException;
 import dev.iliamuravev.ledger.domain.AccountNotFoundException;
 import dev.iliamuravev.ledger.domain.AccountStatus;
 import dev.iliamuravev.ledger.domain.AccountType;
 import dev.iliamuravev.ledger.domain.CurrencyCodes;
 import dev.iliamuravev.ledger.domain.InvalidRequestException;
 import dev.iliamuravev.ledger.domain.Money;
+import java.util.Currency;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -35,6 +37,20 @@ public class AccountService {
                 AccountStatus.ACTIVE, Money.zero(currency), 0, clock.now());
         accounts.insert(account);
         return account;
+    }
+
+    @Transactional
+    public Account close(UUID id) {
+        return switch (accounts.closeIfEmpty(id)) {
+            case CLOSED, ALREADY_CLOSED -> get(id);
+            case NOT_EMPTY -> throw new AccountNotEmptyException(id);
+            case NOT_FOUND -> throw new AccountNotFoundException(id);
+        };
+    }
+
+    @Transactional
+    public Account settlementAccount(Currency currency) {
+        return accounts.settlementAccount(currency, clock.now());
     }
 
     @Transactional(readOnly = true)
