@@ -120,10 +120,30 @@ tasks.withType<JavaCompile> {
 }
 
 tasks.test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags("benchmark")
+    }
     testLogging {
         events("failed", "skipped")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
+
+val benchmark by tasks.registering(Test::class) {
+    description = "Compares the pessimistic and optimistic transfer engines under contention."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("benchmark")
+    }
+    outputs.upToDateWhen { false }
+    systemProperty("benchmark.output", layout.buildDirectory.file("reports/benchmark/locking.md").get().asFile.path)
+    listOf("benchmark.threads", "benchmark.transfers", "benchmark.warmup").forEach { key ->
+        providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
+    }
+    testLogging {
+        showStandardStreams = true
     }
 }
 
