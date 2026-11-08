@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ledger
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger -d ledger"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  ledger:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      LEDGER_DB_URL: jdbc:postgresql://postgres:5432/ledger
+      LEDGER_DB_USER: ledger
+      LEDGER_DB_PASSWORD: ledger
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
