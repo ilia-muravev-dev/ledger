@@ -65,14 +65,13 @@ class OptimisticTransferEngine implements TransferEngine {
         var to = read(command.toAccountId());
 
         var rejection = TransferRules.evaluate(command, from, to);
-        var transfer = recorder.record(command, rejection);
-        if (transfer.isCompleted()) {
-            var amount = transfer.amount().amount();
+        if (rejection.isEmpty()) {
+            var amount = command.amount().amount();
             Stream.of(new Delta(from, -amount), new Delta(to, amount))
                     .sorted(Comparator.comparing(delta -> delta.account.id(), LockOrder.ACCOUNTS))
                     .forEach(this::apply);
         }
-        return TransferOutcome.created(transfer);
+        return TransferOutcome.created(recorder.record(command, rejection));
     }
 
     private Account read(UUID id) {
