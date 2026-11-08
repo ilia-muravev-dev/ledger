@@ -2,8 +2,14 @@ package dev.iliamuravev.ledger.ledger;
 
 import static dev.iliamuravev.ledger.jooq.Tables.LEDGER_ENTRY;
 
+import dev.iliamuravev.ledger.domain.LedgerEntry;
+import dev.iliamuravev.ledger.domain.Money;
 import dev.iliamuravev.ledger.domain.Transfer;
 import java.time.ZoneOffset;
+import java.util.Currency;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 
@@ -14,6 +20,19 @@ public class LedgerEntryRepository {
 
     public LedgerEntryRepository(DSLContext db) {
         this.db = db;
+    }
+
+    public List<LedgerEntry> findPage(UUID accountId, Currency currency, Optional<Long> beforeEntryId, int limit) {
+        var condition = LEDGER_ENTRY.ACCOUNT_ID.eq(accountId);
+        if (beforeEntryId.isPresent()) {
+            condition = condition.and(LEDGER_ENTRY.ID.lt(beforeEntryId.get()));
+        }
+        return db.selectFrom(LEDGER_ENTRY)
+                .where(condition)
+                .orderBy(LEDGER_ENTRY.ID.desc())
+                .limit(limit)
+                .fetch(r -> new LedgerEntry(r.getId(), r.getTransferId(), r.getAccountId(),
+                        new Money(r.getAmount(), currency), r.getCreatedAt().toInstant()));
     }
 
     public void insertDoubleEntry(Transfer transfer) {
