@@ -1,10 +1,9 @@
-FROM eclipse-temurin:21-jdk AS build
+FROM gradle:9.8.2-jdk21 AS build
 WORKDIR /workspace
-COPY gradlew settings.gradle.kts build.gradle.kts ./
-COPY gradle gradle
-RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon dependencies > /dev/null
+COPY settings.gradle.kts build.gradle.kts ./
+RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon dependencies > /dev/null
 COPY src src
-RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon bootJar -x test
+RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon bootJar -x test
 RUN java -Djarmode=tools -jar build/libs/ledger.jar extract --layers --launcher --destination extracted
 
 FROM eclipse-temurin:21-jre
