@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: ledger
+  datasource:
+    url: ${LEDGER_DB_URL:jdbc:postgresql://localhost:5432/ledger}
+    username: ${LEDGER_DB_USER:ledger}
+    password: ${LEDGER_DB_PASSWORD:ledger}
+    hikari:
+      maximum-pool-size: 20
+  jooq:
+    sql-dialect: postgres
+  flyway:
+    locations: classpath:db/migration
+  mvc:
+    problemdetails:
+      enabled: true
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
