@@ -53,6 +53,13 @@ services:
     ports:
       - "8080:8080"
 
+  ui:
+    build: ./ui
+    depends_on:
+      - ledger
+    ports:
+      - "8081:80"
+
   prometheus:
     image: prom/prometheus:v3.16.0
     profiles: ["observability"]
