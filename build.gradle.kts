@@ -131,7 +131,7 @@ tasks.withType<JavaCompile> {
 
 tasks.test {
     useJUnitPlatform {
-        excludeTags("benchmark")
+        excludeTags("benchmark", "postgres-bug")
     }
     testLogging {
         events("failed", "skipped")
@@ -152,6 +152,20 @@ val benchmark by tasks.registering(Test::class) {
     listOf("benchmark.threads", "benchmark.transfers", "benchmark.warmup").forEach { key ->
         providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
     }
+    testLogging {
+        showStandardStreams = true
+    }
+}
+
+val postgresMultixactRepro by tasks.registering(Test::class) {
+    description = "Reproduces the PostgreSQL multixact error from issue #26 with plain JDBC."
+    group = "verification"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags("postgres-bug")
+    }
+    outputs.upToDateWhen { false }
     testLogging {
         showStandardStreams = true
     }

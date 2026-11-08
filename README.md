@@ -60,6 +60,7 @@ Development:
 ./gradlew build          # compile + all backend tests (Testcontainers: PostgreSQL + Kafka, needs Docker)
 ./gradlew bootTestRun    # run the service against throwaway PostgreSQL and Kafka containers
 ./gradlew benchmark      # locking strategy benchmark, writes build/reports/benchmark/locking.md
+./gradlew postgresMultixactRepro   # reproduces the PostgreSQL bug from #26 with plain JDBC
 ```
 
 ```bash
@@ -330,11 +331,26 @@ whole transaction is rolled back and retried with exponential backoff and full j
 database connection while sleeping.
 
 The versioned updates run **before** the transfer and its entries are inserted. The first version did
-it the other way round and, under contention, PostgreSQL itself failed with
-`new multixact has more than one updating member` (on 16.15 and 18): the foreign keys had already taken
-`KEY SHARE` locks on rows that other transactions were updating. Updating first means a transaction
-only key-shares rows it already owns, and a losing attempt aborts before writing anything. Details in
-[#26](https://github.com/ilia-muravev-dev/ledger/issues/26).
+it the other way round and, under contention, a few transactions per run failed inside PostgreSQL with
+`XX000 new multixact has more than one updating member`. That is a known PostgreSQL bug, not an
+application error: when a row carries `KEY SHARE` locks (here from the foreign keys of the inserted
+entries) and the transaction that updated it is still in the middle of aborting (here a loser of the
+version check), the next updater fails. It is fixed upstream by
+[068c9aa](https://github.com/postgres/postgres/commit/068c9aaec31b) (October 2026, backpatched to
+14–18), which is not yet in a released minor version — 16.15 and 18.6 are both affected.
+
+`MultixactReproTest` reproduces it with plain JDBC, without any application code:
+
+| PostgreSQL | Order | Foreign keys | Multixact errors per run |
+|---|---|---|---:|
+| 16.15 | inserts, then versioned updates | on | 3–4 |
+| 18.6 | inserts, then versioned updates | on | 4–11 |
+| 16.15 / 18.6 | versioned updates, then inserts | on | 0 |
+| 18.6 | inserts, then versioned updates | off | 0 |
+
+Updating first means a transaction only key-shares rows it already holds an update lock on, so the
+race cannot happen, and a losing attempt aborts before writing anything. Run it with
+`./gradlew postgresMultixactRepro`; details in [#26](https://github.com/ilia-muravev-dev/ledger/issues/26).
 
 ### Transactional outbox
 
@@ -556,8 +572,8 @@ observability/                    Prometheus config, Grafana provisioning and da
   model, observability and load testing, multi-currency, web UI) are done.
 - Next: per-account live subscriptions ([#41](https://github.com/ilia-muravev-dev/ledger/issues/41)),
   incremental reconciliation ([#42](https://github.com/ilia-muravev-dev/ledger/issues/42)), hot-account
-  contention ([#43](https://github.com/ilia-muravev-dev/ledger/issues/43)), and reporting the PostgreSQL
-  multixact error upstream ([#31](https://github.com/ilia-muravev-dev/ledger/issues/31)).
+  contention ([#43](https://github.com/ilia-muravev-dev/ledger/issues/43)), and re-running
+  `postgresMultixactRepro` against the first PostgreSQL minor release that ships the upstream fix.
 
 ## License
 
