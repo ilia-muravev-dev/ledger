@@ -6,7 +6,7 @@ COPY src src
 RUN --mount=type=cache,target=/home/gradle/.gradle/caches gradle --no-daemon bootJar -x test
 RUN java -Djarmode=tools -jar build/libs/ledger.jar extract --layers --launcher --destination extracted
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --uid 10001 ledger
 WORKDIR /app
 COPY --from=build /workspace/extracted/dependencies/ ./
