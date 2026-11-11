@@ -44,7 +44,8 @@ export function App() {
   const onUpdates = useCallback((updates: LiveUpdate[]) => {
     dispatch({ type: 'live', updates, at: Date.now() });
   }, []);
-  const status = useLiveUpdates(onUpdates);
+  const accountIds = useMemo(() => state.accounts.map((a) => a.id), [state.accounts]);
+  const status = useLiveUpdates(accountIds, onUpdates);
 
   useEffect(() => {
     const url = new URL(window.location.href);
