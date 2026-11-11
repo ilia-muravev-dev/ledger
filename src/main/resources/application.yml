@@ -54,6 +54,7 @@ ledger:
   live:
     enabled: true
     allowed-origin-patterns: http://localhost:*,http://127.0.0.1:*
+    max-accounts-per-session: 1000
   reconciliation:
     monitor:
       enabled: true

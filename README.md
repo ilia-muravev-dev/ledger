@@ -118,7 +118,7 @@ All amounts are integers in **minor units** of the currency (cents for EUR/USD, 
 | `POST` | `/transfers` | Move money. `targetCurrency` makes it an FX transfer. Requires `Idempotency-Key` |
 | `GET` | `/transfers/{id}` | A transfer, completed or rejected, with its FX snapshot |
 | `GET` | `/fx/rates?from=&to=` | Current rate for a currency pair |
-| `WS` | `/ws/updates` | Stream of `entry-posted` messages with the balance after each entry |
+| `WS` | `/ws/updates` | Send `{"type":"subscribe","accountIds":[…]}`, receive `entry-posted` messages for those accounts with the balance after each entry |
 | `GET` | `/actuator/reconciliation` | Recompute every balance from the entries and report discrepancies |
 | `GET` | `/actuator/prometheus` | Metrics |
 
@@ -384,7 +384,9 @@ projected one event per transaction and fell 8,000+ records behind under load �
 [the load test](#load-test-and-observability) and [#38](https://github.com/ilia-muravev-dev/ledger/issues/38).
 
 The live WebSocket feed is a second consumer with a **consumer group per instance**, so every instance
-sees every event and can push it to its own sockets.
+sees every event and can push it to its own sockets. Each socket only gets entries for the accounts it
+subscribed to (up to 1,000; sending a new list replaces the old one). Invalid subscriptions get an
+`error` reply and leave the connection open, and slow clients are isolated by a bounded send buffer.
 
 ### Multi-currency transfers
 
@@ -537,8 +539,8 @@ The concurrency contract runs the same five scenarios against both engines:
   balance snapshots and keep the full pass as a nightly job —
   [#42](https://github.com/ilia-muravev-dev/ledger/issues/42).
 - **Partitioning.** `ledger_entry` and `outbox_event` grow forever: partition by time and archive.
-- **Live feed.** Every socket currently receives every entry; clients should subscribe to the accounts
-  they may see — [#41](https://github.com/ilia-muravev-dev/ledger/issues/41).
+- **Live feed.** Clients subscribe to the accounts they show, but any client may subscribe to any
+  account; with authentication, subscriptions must be limited to accounts the caller may see.
 - **Idempotency record lifetime.** Keys are kept forever here; production would expire them after a
   retention window and scope them per client.
 - **FX rates.** A live rate provider with quote expiry, spreads and a quote id the client confirms.
@@ -570,8 +572,8 @@ observability/                    Prometheus config, Grafana provisioning and da
 
 - v0.1 (MVP) and [v0.2](https://github.com/ilia-muravev-dev/ledger/milestone/2) (outbox and read
   model, observability and load testing, multi-currency, web UI) are done.
-- Next: per-account live subscriptions ([#41](https://github.com/ilia-muravev-dev/ledger/issues/41)),
-  incremental reconciliation ([#42](https://github.com/ilia-muravev-dev/ledger/issues/42)), hot-account
+- Per-account live subscriptions ([#41](https://github.com/ilia-muravev-dev/ledger/issues/41)) are done.
+- Next: incremental reconciliation ([#42](https://github.com/ilia-muravev-dev/ledger/issues/42)), hot-account
   contention ([#43](https://github.com/ilia-muravev-dev/ledger/issues/43)), and re-running
   `postgresMultixactRepro` against the first PostgreSQL minor release that ships the upstream fix.
 
