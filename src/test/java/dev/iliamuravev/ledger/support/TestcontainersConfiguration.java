@@ -11,11 +11,12 @@ import org.testcontainers.utility.DockerImageName;
 public class TestcontainersConfiguration {
 
     public static final DockerImageName POSTGRES_IMAGE = DockerImageName.parse("postgres:16-alpine");
-    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse("apache/kafka-native:4.3.2");
+    public static final DockerImageName KAFKA_IMAGE = DockerImageName.parse("apache/kafka:4.3.2");
 
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(POSTGRES_IMAGE)
-            .withCommand("postgres", "-c", "max_connections=200");
-    private static final KafkaContainer KAFKA = new KafkaContainer(KAFKA_IMAGE);
+            .withCommand("postgres", "-c", "max_connections=200")
+            .withStartupAttempts(3);
+    private static final KafkaContainer KAFKA = new KafkaContainer(KAFKA_IMAGE).withStartupAttempts(3);
 
     @Bean(destroyMethod = "")
     @ServiceConnection
